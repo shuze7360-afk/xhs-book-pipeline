@@ -55,6 +55,7 @@ references/
 scripts/
   xhs_cards_template.py       Kami纸感卡片生成器（改内容区即可复用）
   render_cards.py             HTML→PNG 渲染（每张独立浏览器实例，防中途崩溃）
+  build_publish_config.py     阶段6辅助：从05发布稿自动组装 正文.txt+publish_config.json
   publish_direct.py           直连 MCP 的 JSON-RPC 发布（绕开客户端60秒超时）
 ```
 

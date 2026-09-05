@@ -28,6 +28,7 @@ description: 小红书读书笔记自动化流水线（编辑部subagent团队�
 4. **用户真实反应逐字记录**：用户对3个钢人问题的回答，你原样写入 `03-用户真实反应.md`（不改写、不概括、不"帮忙补全"），再派工执笔编辑。
 5. **降级模式**：若当前会话没有 `xhs-*` 注册岗位（换客户端/注册未生效），用 `general-purpose` subagent 派工，消息开头加一句："你的岗位手册在 `<手册绝对路径>`，先完整读一遍，再按手册执行下面的任务。"团队照常运转。
 6. subagent 永远不直接面对用户；一切确认、提问、交审由你转达。
+7. **故障处理**（首测实战沉淀）：①派工被内容安全过滤器拦截 → 精简派工消息重试（不在派工文本里堆叠大段引文，让岗位从文件里自己取材料）；②岗位后台停滞超过约5分钟 → SendMessage催办，仍无响应且任务为机械修复时可由你代行并记入07复盘；③报告类产出末尾截断 → 让岗位补发缺失部分（质量审核员报告以【报告完】标记结尾，缺标记即要求补发）。
 
 ## 两道闸门（红线，任何情况下不可跳过，不可委派给subagent）
 
@@ -73,7 +74,7 @@ cards/（美编的PNG）
 
 ## 阶段1-2 · 抓书与转MD（派工书探）
 
-派工 `xhs-book-scout`，传入书名/作者/版本与运行文件夹路径。验收要点：`01-完整性声明.md` 存在且含实际读取范围与损耗清单；搜不到原书时书探会上报换源选项，**由你转问用户，禁止在没读原书的情况下假装读过**。操作细节、故障排查见 [references/zlibrary-fetch.md](references/zlibrary-fetch.md)。
+派工前先做**代理预检**：`curl -x http://127.0.0.1:10090 -m 8 https://www.gstatic.com/generate_204`，不通说明当前节点死——用 Mihomo API（127.0.0.1:9790）测延迟切节点（GET /proxies 找组 → GET /proxies/<节点>/delay 测延迟 → PUT /proxies/<组> 切换），恢复后再派工。派工 `xhs-book-scout`，传入书名/作者/版本与运行文件夹路径。验收要点：`01-完整性声明.md` 存在且含实际读取范围与损耗清单；搜不到原书时书探会上报换源选项，**由你转问用户，禁止在没读原书的情况下假装读过**。操作细节、故障排查见 [references/zlibrary-fetch.md](references/zlibrary-fetch.md)。
 
 ## 阶段3 · 阅读分析（派工拆书分析师 → ⛔闸门1）
 
@@ -92,7 +93,11 @@ cards/（美编的PNG）
 
 ## 阶段6 · 发布（主编亲自做）
 
-**不要用 MCP 工具层发布**（客户端60秒超时会掐断多图上传）。用 [scripts/publish_direct.py](scripts/publish_direct.py) 直连本地 MCP 服务的 JSON-RPC 接口，超时给足 280 秒。发布细节、风控规避（绝不调 delete_cookies、自建浏览器会被指纹风控拦）、故障处理见 [references/xhs-publish.md](references/xhs-publish.md)。
+**发布前预检两步**：①本地服务是否在跑——没有则执行 xiaohongshu-mcp 目录的 `start-service.bat`（开机自启不可靠）；②登录态——`curl http://localhost:18060/api/v1/login/status` 返回 `is_logged_in: true` 才继续。
+
+**组装配置**：`python scripts/build_publish_config.py <运行文件夹>`——自动从 05 提取正文（>935 警告、>960 拒绝）、标题（取✅已选定标记）、标签（去#）、cards 图片清单，写出 publish_config.json。
+
+然后**不要用 MCP 工具层发布**（客户端60秒超时会掐断多图上传），用 [scripts/publish_direct.py](scripts/publish_direct.py) 直连本地 MCP 服务的 JSON-RPC 接口，超时给足 280 秒。平台若报字数超限：按 [references/xhs-publish.md](references/xhs-publish.md) 的安全线（≤935）删减——**用户确认发布后的任何删减都必须记录进 05 并在交付时明确告知用户**。发布成功后用服务工具 `get_my_profile` 核对笔记可见并取 note id 拼链接。风控规避（绝不调 delete_cookies、自建浏览器会被指纹风控拦）见 [references/xhs-publish.md](references/xhs-publish.md)。
 
 ## 阶段7 · 复盘回填（主编亲自做）
 

@@ -32,13 +32,16 @@
 
 ## 阶段6 · 发布（直连 API 法）
 
-**为什么不用 MCP 工具层**：客户端 60 秒工具超时会掐断多图上传（服务端流程随之中断），5 张图必超。直连本地 MCP 服务的 HTTP 端口：
+**发布前预检**：①服务存活——没起则跑 xiaohongshu-mcp 目录的 `start-service.bat`（开机自启不可靠）；②登录态——`curl http://localhost:18060/api/v1/login/status` 确认 `is_logged_in: true`。
+
+**为什么不用 MCP 工具层**：客户端 60 秒工具超时会掐断多图上传（服务端流程随之中断），5 张图必超。直连本地 MCP 服务的 HTTP 端口（配置可用脚本从 05 自动组装）：
 
 ```bash
-python scripts/publish_direct.py publish_config.json
+python scripts/build_publish_config.py <运行文件夹>   # 生成 正文.txt + publish_config.json
+python scripts/publish_direct.py <运行文件夹>/publish_config.json
 ```
 
-配置文件示例（publish_config.json）：
+配置文件示例（publish_config.json，build 脚本自动生成，也可手写）：
 ```json
 {
   "port": 18060,
@@ -55,13 +58,13 @@ python scripts/publish_direct.py publish_config.json
 3. `tools/call` 调 `publish_content`，超时给 280 秒；
 4. 响应是 SSE 帧，取 `data:` 行解析 JSON。
 
-**发布前核验**：`/api/v1/login/status` 确认登录态；发布返回里出现"发布完成"字样即为成功，随后到主页核对笔记是否可见。
+**发布前核验**：`/api/v1/login/status` 确认登录态；发布返回里出现"发布完成"字样即为成功，随后调服务工具 `get_my_profile` 核对主页可见，取 note id 与 xsec_token 拼链接：`https://www.xiaohongshu.com/explore/<id>?xsec_token=<token>&xsec_source=pc_user`。
 
 **红线与坑**：
 - **绝不调用 `delete_cookies`**——会清空登录态，只能重新扫码。恢复登录：运行 MCP 服务目录下的登录辅助程序（形如 `xiaohongshu-login.exe`，会弹出可见窗口扫码，cookies 文件自动回写，服务无需重启）。
 - **风控 300012"IP存在风险"**：自建 playwright/chromium 自动化（无论有头、直连、注入会话）会被指纹风控拦截。MCP 服务自带浏览器带指纹一致性伪装，是可信环境——**一切读写操作都走 MCP，不要用自己的浏览器硬闯**。
 - `get_login_qrcode` 不弹窗且每次调用作废上一个二维码；等用户扫码一律用登录辅助程序弹窗。
-- 发布失败若提示字数超限，按上文 ≤960 标准再删。
+- 发布失败若提示字数超限，按上文 ≤935 安全线删减；**用户"确认发布"之后的删减必须最小化，删改处记录进 05-发布稿.md 并在交付时明确告知用户**。
 
 ## 阶段7 · 复盘回填
 
